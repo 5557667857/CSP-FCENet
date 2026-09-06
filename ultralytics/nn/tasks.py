@@ -36,7 +36,9 @@ from ultralytics.nn.modules import (
     C3x,
     CBFuse,
     CBLinear,
+    CAself,
     CSPOmniKernel,
+    CSP_FCM,
     Channel,
     Classify,
     Concat,
@@ -1060,7 +1062,7 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
             if len(args) == 2:  # only nc passed in YAML, use default hidden channels
                 args.insert(1, 256)
             args[1] = make_divisible(min(args[1], max_channels) * width, 8)  # scale hidc by model width
-        elif m in {CSPOmniKernel, FCM}:
+        elif m in {CSPOmniKernel, FCM, CSP_FCM}:
             c2 = ch[f]
             args = [c2]
         elif m is RTDETRDecoder:  # special case, channels arg must be passed in index 1

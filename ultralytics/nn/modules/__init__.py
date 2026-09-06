@@ -46,6 +46,8 @@ from .block import (
     CBFuse,
     CBLinear,
     CSPOmniKernel,
+    CAself,
+    CSP_FCM,
     Channel,
     ContrastiveHead,
     FCM,
@@ -181,4 +183,6 @@ __all__ = (
     "Channel",
     "Spatial",
     "FCM",
+    "CAself",
+    "CSP_FCM",
 )

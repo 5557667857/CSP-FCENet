@@ -54,6 +54,8 @@ __all__ = (
     "Channel",
     "Spatial",
     "FCM",
+    "CAself",
+    "CSP_FCM",
 )
 
 
@@ -1224,3 +1226,54 @@ class FCM(nn.Module):
 
 
 ######################################## AAAI2025 FCM end ########################################
+
+
+class CAself(nn.Module):
+    """Channel self-attention gate: concat of avg-pool and max-pool -> 1x1 conv -> sigmoid."""
+
+    def __init__(self, channel):
+        super(CAself, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)  # 平均池化提取通道特征
+        self.max_pool = nn.AdaptiveMaxPool2d(1)  # 最大池化提取通道特征
+        self.fc = nn.Conv2d(2 * channel, channel, 1, 1, 0, bias=True)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        branch_avg = self.avg_pool(x)
+        branch_max = self.max_pool(x)
+        out = torch.cat((branch_avg, branch_max), dim=1)
+        out = self.fc(out)
+        out = self.sigmoid(out)
+        return out
+
+
+class CSP_FCM(nn.Module):
+    """CSP-style FCM block: split into 3 branches, cross channel gating between two of them, keep one identity."""
+
+    def __init__(self, dim):
+        super().__init__()
+        self.conv0 = Conv(dim, int(dim * 3 // 2), 1)
+        self.one = dim // 2
+        self.two = dim
+        self.three = dim // 2
+        self.four = dim // 2
+        self.conv1 = Conv(dim // 2, dim // 2, 3, 1, 1)
+        self.conv12 = Conv(dim // 2, dim // 2, 3, 1, 1)
+        self.conv123 = Conv(dim // 2, dim // 2, 3, 1, 1)
+        self.conv2 = Conv(dim // 2, dim // 2, 3, 1, 1)
+        self.conv3 = Conv(int(dim * 3 // 2), dim, 1, 1)
+        self.spatial = Spatial(dim // 2)
+        self.channel = CAself(dim // 2)
+
+    def forward(self, x):
+        x = self.conv0(x)
+        x1, x2 = torch.split(x, [self.one, self.two], dim=1)
+        x3, x4 = torch.split(x2, [self.three, self.four], dim=1)
+        x3 = self.conv1(x3)
+        x3 = self.conv12(x3)
+        x3 = self.conv123(x3)
+        x4 = self.conv2(x4)
+        x44 = self.channel(x3) * x4
+        x5 = torch.cat((x1, x3, x44), 1)
+        x5 = self.conv3(x5)
+        return x5
